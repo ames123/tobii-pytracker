@@ -23,6 +23,7 @@ psychopy-eyetracker-tobii==0.0.3
 tobii-research==2.0.0
 setuptools<=66.1.1
 scikit-image>=0.25.2
+pm4py>=2.7.11 # requirement for "Tobii-Pytracker Process-Mining Approach to Eye Tracking"
 # Install pywin32 only on Windows
 pywin32==311; platform_system == "Windows"
 sounddevice==0.5.3; platform_system == "Windows"
