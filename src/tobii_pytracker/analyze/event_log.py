@@ -1,38 +1,32 @@
-import ast
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from tobii_pytracker.analyze.bbox import parse_objects_bboxes, point_inside_bbox
 
 
 def _extract_aoi_from_bboxes(x: float, y: float, raw_bboxes) -> str | None:
-    """Dopasowuje punkt (x, y) do gotowych ramek z kolumny objects_bboxes (format tobii-pytracker)."""
-    if pd.isna(x) or pd.isna(y) or pd.isna(raw_bboxes):
+    """Dopasowuje punkt (x, y) do obszaru AOI"""
+    if pd.isna(x) or pd.isna(y) or raw_bboxes is None:
         return None
-    if isinstance(raw_bboxes, str):
-        try:
-            raw_bboxes = ast.literal_eval(raw_bboxes)
-        except Exception:
-            return None
 
+    parsed = parse_objects_bboxes(raw_bboxes)
     boxes = (
-        raw_bboxes.get("image_bboxes")
-        or raw_bboxes.get("words")
-        or raw_bboxes.get("bboxes")
+        parsed.get("image_bboxes")
+        or parsed.get("words")
+        or parsed.get("timeseries_bboxes")
+        or parsed.get("bboxes")
         or []
-        if isinstance(raw_bboxes, dict)
-        else raw_bboxes
+        if isinstance(parsed, dict)
+        else parsed
     )
 
     for idx, item in enumerate(boxes):
         if not isinstance(item, dict):
             continue
-        b = item.get("bbox", item)
-        if {"cx", "cy", "w", "h"}.issubset(b.keys()):
-            if (b["cx"] - b["w"] / 2) <= x <= (b["cx"] + b["w"] / 2) and (
-                b["cy"] - b["h"] / 2
-            ) <= y <= (b["cy"] + b["h"] / 2):
-                label = item.get("class") or item.get("word") or item.get("label") or f"AOI_{idx}"
-                return f"{label}_{idx}" if label in ("grid", "superpixel", "saliency") else str(label)
+        bbox = item.get("bbox", item)
+        if point_inside_bbox(x, y, bbox):
+            label = item.get("class") or item.get("word") or item.get("label") or f"AOI_{idx}"
+            return f"{label}_{idx}" if label in ("grid", "superpixel", "saliency") else str(label)
     return None
 
 
@@ -43,14 +37,14 @@ def create_event_log(
     analyzer: object | None = None,
     participant_col: str = "set_name",
     stimulus_col: str = "slide_index",
-    time_col: str = "logged_time",
+    time_col: str = "system_time",
     x_col: str = "avg_gaze_x",
     y_col: str = "avg_gaze_y",
     export_pm4py_names: bool = False,
     save_path: Path | str | None = None,
 ) -> pd.DataFrame:
     """
-    Generuje Event Log (PM4Py) z danych okulograficznych (DataFrame z DataLoader lub ścieżka do CSV).
+    Generuje Event Log z danych okulograficznych (DataFrame z DataLoader lub ścieżka do CSV).
     Zwraca 12 wymaganych kolumn ze specyfikacji.
     """
     if isinstance(source, (str, Path)):
@@ -58,10 +52,7 @@ def create_event_log(
     else:
         df = source.copy()
 
-    if time_col not in df.columns and "system_time" in df.columns:
-        time_col = "system_time"
-
-    # 1. Uruchomienie analizatora z tobii-pytracker (np. ClusterAnalyzer)
+    # 1. Uruchomienie analizatora z tobii-pytracker
     if analyzer is not None:
         df = analyzer.analyze(df)
 
