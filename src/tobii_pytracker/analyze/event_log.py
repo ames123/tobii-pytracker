@@ -130,9 +130,6 @@ def create_event_log(
         (log["end_timestamp"] - log["start_timestamp"]).dt.total_seconds() * 1000
     ).round().astype(int)
 
-    log["start_timestamp"] = log["start_timestamp"].dt.round("10ms").dt.strftime("%Y-%m-%d %H:%M:%S.%f").str[:-4]
-    log["end_timestamp"] = log["end_timestamp"].dt.round("10ms").dt.strftime("%Y-%m-%d %H:%M:%S.%f").str[:-4]
-
     log["sequence_index"] = log.groupby([participant_col, stimulus_col]).cumcount() + 1
     log["participant_id"] = log[participant_col].astype(str)
 
